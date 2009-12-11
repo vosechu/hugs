@@ -16,7 +16,7 @@ $node_info = array();
  * Named so as not to conflict with node_access(). Basically sets up the same
  * exact permissions as node.module does. 
  */
-function wrapper_access($op, $node, $account) {
+function hugs_access($op, $node, $account) {
   $type = is_string($node) ? $node : (is_array($node) ? $node['type'] : $node->type);
 
   if ($op == 'create') {
@@ -36,16 +36,16 @@ function wrapper_access($op, $node, $account) {
   }
 }
 
-function wrapper_views_api() {
+function hugs_views_api() {
   return array('api' => 2.0);
 }
 
-function wrapper_views_handlers() {
+function hugs_views_handlers() {
   return array(
     'handlers' => array(
-      'wrapper_handler_field' => array(
+      'hugs_handler_field' => array(
         'parent' => 'views_handler_field',
-        'file' => 'wrapper_handler_field.inc',
+        'file' => 'hugs_handler_field.inc',
       ),
     ),
   );
@@ -54,7 +54,7 @@ function wrapper_views_handlers() {
 /**
  * Implementation of hook_node_info().
  */
-function wrapper_node_info() {
+function hugs_node_info() {
   return get_node_info();
 }
 
@@ -64,11 +64,11 @@ function wrapper_node_info() {
  * Basically the same exact thing as node.module. Allows fairly refined control
  * over all editing aspects of the legacy nodes. 
  */
-function wrapper_perm() {
+function hugs_perm() {
   $perms = array();
   
   foreach (node_get_types() as $type) {
-    if ($type->module == 'wrapper') {
+    if ($type->module == 'hugs') {
       $name = check_plain($type->type);
       $perms[] = 'create '. $name .' content';
       $perms[] = 'delete own '. $name .' content';
@@ -84,7 +84,7 @@ function wrapper_perm() {
 /**
  * Implementation of hook_load().
  */
-function wrapper_load($node) {
+function hugs_load($node) {
   // Make sure that we only load a node once. After that we should skip the node_load
   // and just return the correct object. 
   static $nodes = array();
@@ -93,7 +93,7 @@ function wrapper_load($node) {
   
   $metadata = get_metadata($node);
   
-  $node = wrapper_load_without_friends($node);
+  $node = hugs_load_without_friends($node);
 
   // Horibly brittle hack to ensure searching doesn't hose
   $backtrace = debug_backtrace();
@@ -113,7 +113,7 @@ function wrapper_load($node) {
         $sql = "SELECT * FROM node, $drupal_attr as extra WHERE node.nid = extra.nid AND node.nid = ". $node->$drupal_attr;
         $obj = db_fetch_object(db_query($sql));
         $obj->parent = $node->type;
-        array_push($node->$collection, wrapper_load_without_friends($obj));
+        array_push($node->$collection, hugs_load_without_friends($obj));
       }
     }
   }
@@ -133,7 +133,7 @@ function wrapper_load($node) {
         $node->$collection = array();
         while ($obj = db_fetch_object($res)) {
           $obj->parent = $node->type;
-          array_push($node->$collection, wrapper_load($obj));
+          array_push($node->$collection, hugs_load($obj));
         }
       }
     }
@@ -142,7 +142,7 @@ function wrapper_load($node) {
   return $node;
 }
 
-function wrapper_load_without_friends($node) {
+function hugs_load_without_friends($node) {
   $metadata = get_metadata($node);
   
   // Load up linking information and extra info from the node addon table
@@ -195,7 +195,7 @@ function column_name($legacy_attr) {
   return (is_array($legacy_attr) && $legacy_attr['name']) ? $legacy_attr['name'] : $legacy_attr;
 }
 
-function wrapper_form($node) {
+function hugs_form($node) {
   // Pull up the metadata filtered by node type. If we're editing a node we pass that
   // in as well so that the default values are populated correctly. 
   $metadata = get_metadata($node);
@@ -332,7 +332,7 @@ function wrapper_form($node) {
 /**
  * Implementation of hook_content_extra_fields().
  */
-function wrapper_content_extra_fields($type) {
+function hugs_content_extra_fields($type) {
   $node = new stdClass();
   $node->type = $type;  
   $metadata = get_metadata($node);
@@ -378,12 +378,12 @@ function wrapper_content_extra_fields($type) {
 /**
  * Implementation of hook_view().
  */
-function wrapper_view($node, $teaser = FALSE, $page = FALSE) {
+function hugs_view($node, $teaser = FALSE, $page = FALSE) {
   $metadata = get_metadata($node);
   
   $node = node_prepare($node, $teaser);
   
-  $node = wrapper_view_without_friends($node, $teaser, $page);
+  $node = hugs_view_without_friends($node, $teaser, $page);
   
   if ($metadata['belongs_to']) {
     foreach ($metadata['belongs_to'] as $drupal_attr => $legacy_attr) {
@@ -395,7 +395,7 @@ function wrapper_view($node, $teaser = FALSE, $page = FALSE) {
         if ($node->$collection) {
           foreach ($node->$collection as $child) {
             $child->parent = $node->type;
-            $view = wrapper_view_without_friends($child, $teaser, $page);
+            $view = hugs_view_without_friends($child, $teaser, $page);
             node_invoke_nodeapi(&$view, 'view', $teaser, $page);
             $rows[] = $view->content;
           }
@@ -417,7 +417,7 @@ function wrapper_view($node, $teaser = FALSE, $page = FALSE) {
         if ($node->$collection) {
           foreach ($node->$collection as $child) {
             $child->parent = $node->type;
-            $view = wrapper_view($child, $teaser, $page);
+            $view = hugs_view($child, $teaser, $page);
             node_invoke_nodeapi(&$view, 'view', $teaser, $page);
             $rows[] = $view->content;
           }
@@ -432,7 +432,7 @@ function wrapper_view($node, $teaser = FALSE, $page = FALSE) {
   return $node;
 }
 
-function wrapper_view_without_friends($node, $teaser, $page) {
+function hugs_view_without_friends($node, $teaser, $page) {
   $metadata = get_metadata($node);
   
   // Pull up title/body info and display fields if necessary
@@ -477,7 +477,7 @@ function wrapper_view_without_friends($node, $teaser, $page) {
 /**
  * Implementation of hook_theme().
  */
-function wrapper_theme() {
+function hugs_theme() {
   return array(
     'section' => array(
       'arguments' => array('elements' => NULL),
@@ -489,7 +489,7 @@ function wrapper_theme() {
 /**
  * Implementation of hook_form_alter().
  */
-function wrapper_form_alter(&$form, $form_state, $form_id) {
+function hugs_form_alter(&$form, $form_state, $form_id) {
 
 }
 
@@ -530,7 +530,7 @@ function select_flattened_array_from_sql($col1, $sql, $parent_node_type) {
 /**
  * Implementation of hook_delete().
  */
-function wrapper_delete($node) {
+function hugs_delete($node) {
   $metadata = get_metadata($node);
   
   db_query("DELETE FROM %s WHERE %s = %d", $metadata['table_mapping'], $metadata['primary_key'], $node->refid);
@@ -540,7 +540,7 @@ function wrapper_delete($node) {
 /**
  * Implementation of hook_insert().
  */
-function wrapper_insert($node) {
+function hugs_insert($node) {
   $metadata = get_metadata($node);
   
   if (!$node->refid) {
@@ -599,7 +599,7 @@ function wrapper_insert($node) {
 /**
  * Implementation of hook_update().
  */
-function wrapper_update($node) {
+function hugs_update($node) {
   $metadata = get_metadata($node);
   
   // Update the legacy table

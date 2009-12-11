@@ -13,7 +13,7 @@
  * 
  * Documentation pending. My sincerest apologies. 
  */
-function wrapper_views_data() {
+function hugs_views_data() {
   $data = array();
   
   $all_metadata = get_metadata();
@@ -79,7 +79,7 @@ function add_handlers($legacy_table, $drupal_attr, $legacy_attr) {
   // Text types
   if (!is_array($legacy_attr) || in_array($legacy_attr['type'], array('textarea', 'textfield'))) {
     $ret['field'] = array(
-      'handler' => 'wrapper_handler_field',
+      'handler' => 'hugs_handler_field',
       'click sortable' => TRUE,
     );
     $ret['filter'] = array(

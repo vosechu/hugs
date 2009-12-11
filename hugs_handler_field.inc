@@ -8,7 +8,7 @@
 /**
  * Field handler to provide simple renderer that allows linking to a node.
  */
-class wrapper_handler_field extends views_handler_field {
+class hugs_handler_field extends views_handler_field {
   function option_definition() {
     $options = parent::option_definition();
     $options['link_to_node'] = array('default' => FALSE);

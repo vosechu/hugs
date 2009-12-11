@@ -1,28 +1,28 @@
 <?php
 
 require_once('metadata.inc');
-require_once('wrapper.module');
+require_once('hugs.module');
 
 ini_set('memory_limit', '500M');
 
-function wrapper_install() {
-  drupal_install_schema('wrapper');
+function hugs_install() {
+  drupal_install_schema('hugs');
 }
 
-function wrapper_update_6101() {
+function hugs_update_6101() {
   $all_metadata = get_metadata();
   $tables = _get_table_mapping();
   foreach ($tables as $drupal_table => $legacy_table) {
     $res = db_query("SELECT * FROM $legacy_table");
     while ($obj = db_fetch_object($res)) {
-      wrapper_insert_object($obj, $drupal_table, $legacy_table);
+      hugs_insert_object($obj, $drupal_table, $legacy_table);
     }
     
     db_query("ANALYZE TABLE $drupal_table");
   }
 }
 
-function wrapper_insert_object($obj, $drupal_table, $legacy_table) {
+function hugs_insert_object($obj, $drupal_table, $legacy_table) {
   $all_metadata = get_metadata();
   
   $node = new stdClass();
@@ -32,11 +32,11 @@ function wrapper_insert_object($obj, $drupal_table, $legacy_table) {
   $nid = db_result(db_query("SELECT node.nid FROM node, $drupal_table as extra WHERE extra.refid = ". $obj->$metadata['primary_key'] ." AND node.type = '$drupal_table' AND node.nid = extra.nid"));
   if (!empty($nid)) {
     $node->nid = $nid;
-    return wrapper_load_without_friends($node);
+    return hugs_load_without_friends($node);
   }
   else {
     $node->refid = $obj->$metadata['primary_key'];
-    $node = wrapper_load_without_friends($node);
+    $node = hugs_load_without_friends($node);
 
     $node->uid = 1;
   }
@@ -45,7 +45,7 @@ function wrapper_insert_object($obj, $drupal_table, $legacy_table) {
     foreach ($metadata['belongs_to'] as $drupal_attr => $legacy_attr) {      
       $child_obj = db_fetch_object(db_query("SELECT * FROM ".$all_metadata['table_mapping'][$drupal_attr]." WHERE ".$all_metadata['primary_key'][$drupal_attr]." = ". $obj->$legacy_attr));
       if ($child_obj) {
-        $child = wrapper_insert_object($child_obj, $drupal_attr, $all_metadata['table_mapping'][$drupal_attr]);
+        $child = hugs_insert_object($child_obj, $drupal_attr, $all_metadata['table_mapping'][$drupal_attr]);
         $node->$drupal_attr = $child->nid;
       }
     }
@@ -56,16 +56,16 @@ function wrapper_insert_object($obj, $drupal_table, $legacy_table) {
   return $node;
 }
 
-function wrapper_uninstall() {
+function hugs_uninstall() {
   $tables = implode(', ', array_map(create_function('$v', 'return("\'".$v."\'");'), array_keys(_get_table_mapping())));
   
   db_query("DELETE FROM node_revisions WHERE nid IN (SELECT nid FROM node WHERE type IN ($tables))");
   db_query("DELETE FROM node WHERE type IN ($tables)");
   
-  drupal_uninstall_schema('wrapper');
+  drupal_uninstall_schema('hugs');
 }
 
-function wrapper_schema() {
+function hugs_schema() {
   $schema = array();
   $tables = _get_table_mapping();
   
