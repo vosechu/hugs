@@ -2,4 +2,3 @@
 name = Hugs
 description = A wrapper around legacy data
 core = 6.x
-package = ASCCC

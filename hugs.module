@@ -396,7 +396,7 @@ function hugs_view($node, $teaser = FALSE, $page = FALSE) {
           foreach ($node->$collection as $child) {
             $child->parent = $node->type;
             $view = hugs_view_without_friends($child, $teaser, $page);
-            node_invoke_nodeapi(&$view, 'view', $teaser, $page);
+            node_invoke_nodeapi($view, 'view', $teaser, $page);
             $rows[] = $view->content;
           }
         }
@@ -418,7 +418,7 @@ function hugs_view($node, $teaser = FALSE, $page = FALSE) {
           foreach ($node->$collection as $child) {
             $child->parent = $node->type;
             $view = hugs_view($child, $teaser, $page);
-            node_invoke_nodeapi(&$view, 'view', $teaser, $page);
+            node_invoke_nodeapi($view, 'view', $teaser, $page);
             $rows[] = $view->content;
           }
         }
@@ -534,7 +534,7 @@ function hugs_delete($node) {
   $metadata = get_metadata($node);
   
   db_query("DELETE FROM %s WHERE %s = %d", $metadata['table_mapping'], $metadata['primary_key'], $node->refid);
-  db_query("DELETE FROM ". $node->type ." WHERE nid = ". $node->nid);
+  db_query("DELETE FROM %s WHERE nid = %d", $node->type, $node->nid);
 }
 
 /**
@@ -545,7 +545,8 @@ function hugs_insert($node) {
   
   if (!$node->refid) {
     // Insert into the legacy table
-    $sql = "INSERT INTO ". $metadata['table_mapping'] . " SET ";
+    $sql = "INSERT INTO %s SET ";
+    $sql_vars = array($metadata['table_mapping']);
     $sql_attr = array();
   
     if ($metadata['rw_attribute_mapping']) {
@@ -555,7 +556,8 @@ function hugs_insert($node) {
         }
         
         $column_name = column_name($legacy_attr);
-        $sql_attr[] = "$column_name = \"". $node->$drupal_attr ."\"";
+        $sql_attr[] = "$column_name = \"%s\"";
+        $sql_vars[] = $node->$drupal_attr;
       }
     }
   
@@ -564,36 +566,37 @@ function hugs_insert($node) {
       $table_mapping = _get_table_mapping();
       foreach ($metadata['belongs_to'] as $drupal_attr => $legacy_attr) {
         if ($node->$drupal_attr) {
-          $sql_attr[] = "$legacy_attr = (SELECT refid FROM $drupal_attr WHERE nid = ". $node->$drupal_attr . ")";
+          $sql_attr[] = "$legacy_attr = (SELECT refid FROM %s WHERE nid = %d)";
+          $sql_vars = array_merge($sql_vars, array($drupal_attr, $node->$drupal_attr));
         }
       }
     }
   
-    db_query($sql . implode(", ", $sql_attr));
+    db_query($sql . implode(", ", $sql_attr), $sql_vars);
   
     $node->refid = db_result(db_query('SELECT LAST_INSERT_ID()'));
   }
   
   // Insert into the drupal extra table
-  $sql = "INSERT INTO ". $node->type . " SET ";
+  $sql = "INSERT INTO %s SET ";
+  $sql_vars = array($node->type);
   
   $sql_attr = array();
-  $sql_attr[] = "nid = ". $node->nid;
-  $sql_attr[] = "vid = ". $node->vid;
-  $sql_attr[] = "refid = ". $node->refid;
+  $sql_attr[] = "nid = %d";
+  $sql_attr[] = "vid = %d";
+  $sql_attr[] = "refid = %d";
+  $sql_vars = array_merge($sql_vars, array($node->nid, $node->vid, $node->refid));
   
   if ($metadata['belongs_to']) {
     foreach ($metadata['belongs_to'] as $drupal_attr => $legacy_attr) {
       if ($node->$drupal_attr) {
-        $sql_attr[] = "$drupal_attr = ". $node->$drupal_attr ."";
+        $sql_attr[] = "%s = %s";
+        $sql_vars = array_merge($sql_vars, array($drupal_attr, $node->$drupal_attr));
       }
     }
   }
-  $sql = $sql . implode(", ", $sql_attr);
 
-  db_query($sql);
-  
-  // TODO: update the foreign keys in the legacy database also
+  db_query($sql . implode(", ", $sql_attr), $sql_vars);
 }
 
 /**
@@ -604,7 +607,8 @@ function hugs_update($node) {
   
   // Update the legacy table
   if ($metadata['rw_attribute_mapping']) {
-    $sql = "UPDATE ". $metadata['table_mapping'] . " SET ";
+    $sql = "UPDATE %s SET ";
+    $sql_vars = array($metadata['table_mapping']);
     
     $sql_attr = array();
     foreach ($metadata['rw_attribute_mapping'] as $drupal_attr => $legacy_attr) {
@@ -613,37 +617,43 @@ function hugs_update($node) {
       }
       
       $column_name = column_name($legacy_attr);
-      $sql_attr[] = "$column_name = \"". $node->$drupal_attr ."\"";
+      $sql_attr[] = "%s = \"%s\"";
+      $sql_vars = array_merge($sql_vars, array($column_name, $node->$drupal_attr));
     }
     $sql = $sql . implode(", ", $sql_attr);
-    $sql .= " WHERE ". $metadata['primary_key'] ." = ". $node->refid ." ";
+    $sql .= " WHERE %s = %d ";
+    $sql_vars = array_merge($sql_vars, array($metadata['primary_key'], $node->refid));
     
-    db_query($sql);
+    db_query($sql, $sql_vars);
   }
   
   if ($metadata['belongs_to']) {
     // Update the drupal table
-    $sql = "UPDATE ". $node->type . " SET ";
+    $sql = "UPDATE %s SET ";
+    $sql_vars = array($node->type);
     
     $sql_attr = array();
     foreach ($metadata['belongs_to'] as $drupal_attr => $legacy_attr) {
       if ($node->$drupal_attr) {
-        $sql_attr[] = "$drupal_attr = ". $node->$drupal_attr;
+        $sql_attr[] = "%s = %s";
+        $sql_vars = array_merge($sql_vars, array($drupal_attr, $node->$drupal_attr));
       }
     }
     
     if (sizeof($sql_attr) > 0) {
       $sql = $sql . implode(", ", $sql_attr);
-      $sql .= " WHERE nid = ". $node->nid;
+      $sql .= " WHERE nid = %d";
+      $sql_vars = array_merge($sql_vars, array($node->nid));
 
-      db_query($sql);
+      db_query($sql, $sql_vars);
     }
     
     // Update the foreign key associations on the legacy table
     $table_mapping = _get_table_mapping();
     foreach ($metadata['belongs_to'] as $drupal_attr => $legacy_attr) {
       if ($node->$drupal_attr) {
-        $sql = "UPDATE ". $metadata['table_mapping'] . " SET $legacy_attr = (SELECT refid FROM $drupal_attr WHERE nid = ". $node->$drupal_attr . ") WHERE ". $metadata['primary_key'] . " = ". $node->refid;
+        $sql = "UPDATE %s SET %s = (SELECT refid FROM %s WHERE nid = %d) WHERE %s = %d";
+        $sql_vars = array($metadata['table_mapping'], $legacy_attr, $drupal_attr, $node->$drupal_attr, $metadata['primary_key'], $node->refid);
         db_query($sql);
       }
     }
