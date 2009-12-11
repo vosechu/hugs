@@ -1,0 +1,3 @@
+Hugs is a module that wraps legacy data in the warm embrace of Drupal. We all wish we could keep legacy data forever but sometimes it's difficult so Hugs attempts to fill the void with a specific bent towards rich data model applications. 
+
+This module is sponsored by Metal Toad Media and is currently in active development for Drupal 6. Support for Drupal 7 is still on the horizon until we can identify whether Hugs is even needed.
