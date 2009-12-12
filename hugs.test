@@ -1,0 +1,64 @@
+<?php
+class HugsTestCase extends DrupalWebTestCase {
+  public static function getInfo() {
+    return array(
+      'name' => 'Hugs',
+      'description' => 'Ensure that we can create legacy content',
+      'group' => 'Hugability',
+    );
+  }
+  
+  public function setUp() {
+    parent::setUp('hugs');  // Enable any modules required for the test
+    // Create and log in our user
+    $privileged_user = $this->drupalCreateUser(array('create application status content'));
+    $this->drupalLogin($privileged_user);
+  }
+  
+  public function testHugsCreate() {
+    $langcode = FIELD_LANGUAGE_NONE;
+    $body_key = "body[$langcode][0][value]";
+    // Create node to edit.
+    $edit = array();
+    $edit['title'] = $this->randomName(8);
+    $edit[$body_key] = $this->randomName(16);
+    
+    $this->drupalPost('node/add/mymodule', $edit, t('Save'));
+    $this->assertText(t('mymodule page @title has been created.', array('@title' => $edit['title'])));
+
+    // For debugging we can output the page so it can be opened with a browser
+    // Remove this line when the test has been debugged
+    $this->outputScreenContents('After page creation', 'testMymoduleCreate');
+  }
+  // 
+  // public function testHugsEdit() {
+  //   $settings = array(
+  //     'type' => 'mymodule',
+  //     'title' => $this->randomName(32),
+  //     'body' => array(FIELD_LANGUAGE_NONE => array(array($this->randomName(64)))),
+  //   );
+  //   $node = $this->drupalCreateNode($settings);
+  // 
+  //   // For debugging, we might output the node structure with $this->pass()
+  //   // $this->pass('Node created: ' . var_export($node,TRUE));
+  // 
+  //   $edit_path = "node/{$node->nid}/edit";
+  //   $this->drupalGet($edit_path);
+  //   $this->assertFieldById('edit-body-zxx-0-summary','', 'Looking for edit-body-zxx-0-summary field as indication that we got to the edit page');
+  // 
+  //   // For debugging we can output the page so it can be opened with a browser
+  //   // Remove this line when the test has been debugged
+  //   $this->outputScreenContents("After drupalGet($edit_path) in testMymoduleEdit", 'testMymoduleEdit');
+  // }
+  
+  private function outputScreenContents($description, $basename) {
+    // This is a hack to get a directory that won't be cleaned up by simpletest
+    $file_dir = file_directory_path().'/../simpletest_output_pages';
+    if (!is_dir($file_dir)) {
+      mkdir($file_dir, 0777, TRUE);
+    }
+    $output_path = "$file_dir/$basename." . $this->randomName(10) . '.html';
+    $rv = file_put_contents($output_path, $this->drupalGetContent());
+    $this->pass("$description: Contents of result page are ".l('here',$output_path));
+  }
+}
