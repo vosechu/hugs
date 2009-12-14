@@ -191,6 +191,10 @@ function hugs_load_without_friends($node) {
   return $node;
 }
 
+/**
+ * Check in the metadata to see if the column definition is an array or just a 
+ * string. If it's a string just return the name, otherwise return the 'name' key. 
+ */
 function column_name($legacy_attr) {
   return (is_array($legacy_attr) && $legacy_attr['name']) ? $legacy_attr['name'] : $legacy_attr;
 }
@@ -210,44 +214,44 @@ function hugs_form($node) {
     foreach ($metadata['rw_attribute_mapping'] as $drupal_attr => $legacy_attr) {
       $form[$drupal_attr] = array(
         '#type' => 'textfield',
-        '#title' => t(titleize($drupal_attr)),
+        '#title' => check_plain(titleize($drupal_attr)),
       );
       
       // This allows the entire stack to be specified by either an array with options:
       // name, type, and options or none of these things. 
       if (is_array($legacy_attr)) {
         if ($legacy_attr['name']) {
-          $form[$drupal_attr]['#default_value'] = $node->$drupal_attr;
+          $form[$drupal_attr]['#default_value'] = check_plain($node->$drupal_attr);
         }
         if ($legacy_attr['type']) {
           $form[$drupal_attr]['#type'] = $legacy_attr['type'];
           if ($legacy_attr['type'] == 'date') {
             if ($node->$drupal_attr) {
               $form[$drupal_attr]['#default_value'] = array(
-                'month' => format_date($node->$drupal_attr, 'custom', 'n'),
-                'day'   => format_date($node->$drupal_attr, 'custom', 'j'),
-                'year'  => format_date($node->$drupal_attr, 'custom', 'Y'),
+                'month' => check_plain(format_date($node->$drupal_attr, 'custom', 'n')),
+                'day'   => check_plain(format_date($node->$drupal_attr, 'custom', 'j')),
+                'year'  => check_plain(format_date($node->$drupal_attr, 'custom', 'Y')),
               );
             }
             else {
               $form[$drupal_attr]['#default_value'] = array(
-                'month' => format_date(time(), 'custom', 'n'),
-                'day'   => format_date(time(), 'custom', 'j'),
-                'year'  => format_date(time(), 'custom', 'Y'),
+                'month' => check_plain(format_date($_SERVER['REQUEST_TIME'], 'custom', 'n')),
+                'day'   => check_plain(format_date($_SERVER['REQUEST_TIME'], 'custom', 'j')),
+                'year'  => check_plain(format_date($_SERVER['REQUEST_TIME'], 'custom', 'Y')),
               );
             }
           }
         }
         if ($legacy_attr['options']) {
           foreach ($legacy_attr['options'] as $key => $value) {
-            $form[$drupal_attr][$key] = $value;
+            $form[$drupal_attr][$key] = check_plain($value);
           }
         }
       }
       
       // If the options coming in aren't an array just use them like a textfield
       else {
-        $form[$drupal_attr]['#default_value'] = $node->$legacy_attr;
+        $form[$drupal_attr]['#default_value'] = check_plain($node->$legacy_attr);
       }
     }    
   }
@@ -255,15 +259,15 @@ function hugs_form($node) {
   if ($node_info[$node->type]['has_title']) {
     $form['title'] = array(
       '#type' => 'textfield',
-      '#title' => $node_info[$node->type]['title_label'],
-      '#default_value' => $node->title,
+      '#title' => check_plain($node_info[$node->type]['title_label']),
+      '#default_value' => check_plain($node->title),
     );
   }
   if ($node_info[$node->type]['has_body']) {
     $form['body'] = array(
       '#type' => 'textarea',
-      '#title' => $node_info[$node->type]['body_label'],
-      '#default_value' => $node->body,
+      '#title' => check_plain($node_info[$node->type]['body_label']),
+      '#default_value' => check_plain($node->body),
     );
   }
   
@@ -273,14 +277,14 @@ function hugs_form($node) {
       $allow_blank = true;
   
       $form[$drupal_attr] = array(
-        '#title' => t(titleize($drupal_attr)),
+        '#title' => check_plain(titleize($drupal_attr)),
         '#type' => 'select',
-        '#options' => select_options_from_sql('nid', 'title', "SELECT * FROM $drupal_attr as extra, node WHERE node.nid = extra.nid", $allow_blank, $node->type),
+        '#options' => check_plain(select_options_from_sql('nid', 'title', "SELECT * FROM $drupal_attr as extra, node WHERE node.nid = extra.nid", $allow_blank, $node->type)),
         '#description' => t('A foreign association to the %table-name table.', array('%table-name' => titleize($drupal_attr))),
-        '#default_value' => $default_value,
+        '#default_value' => check_plain($default_value),
       );
       if (user_access('administer data')) {
-        $form[$drupal_type]['#description'] .=  "<br />". l('Click here to add a new ' . titleize($drupal_type), 'node/add/' . preg_replace('/[_]/', '-', $drupal_type));
+        $form[$drupal_type]['#description'] .=  "<br />". l('Click here to add a new ' . check_plain(titleize($drupal_type)), 'node/add/' . preg_replace('/[_]/', '-', $drupal_type));
       }
       // Don't show fields if there's nothing to display and the user lacks the permissions to add new items
       if (empty($form[$drupal_type]['#description'])) {
@@ -304,8 +308,8 @@ function hugs_form($node) {
       
         $form[$drupal_type] = array(
           '#type' => 'item',
-          '#title' => t(titleize($drupal_type)),
-          '#description' => $description,
+          '#title' => check_plain(titleize($drupal_type)),
+          '#description' => check_plain($description),
         );
         if (user_access('administer data')) {
           $form[$drupal_type]['#description'] .= "<br />". l('Click here to add a new ' . titleize($drupal_type), 'node/add/' . preg_replace('/[_]/', '-', $drupal_type));
@@ -322,7 +326,7 @@ function hugs_form($node) {
   if ($node->refid) {
     $form['refid'] = array(
       '#type' => 'hidden',
-      '#value' => $node->refid,
+      '#value' => check_plain($node->refid),
     );
   }
   
@@ -446,7 +450,7 @@ function hugs_view_without_friends($node, $teaser, $page) {
     foreach ($metadata['ro_attribute_mapping'] as $drupal_attr => $ro_attr) {
       $node->content[$drupal_attr] = array(
         '#value' => theme('section', array('title' => $drupal_attr, 'elements' => array($node->$drupal_attr))),
-        '#weight' => content_extra_field_weight($node->type, $drupal_attr),
+        '#weight' => (module_exists('content')) ? content_extra_field_weight($node->type, $drupal_attr) : 0,
       );
     }
   }
@@ -457,7 +461,7 @@ function hugs_view_without_friends($node, $teaser, $page) {
       if (is_array($legacy_attr) && $legacy_attr['type'] == 'upload_element') {
         $node->content[$drupal_attr] = array(
           '#value' => theme('upload_element_preview', array("#value" => $node->$drupal_attr)),
-          '#weight' => content_extra_field_weight($node->type, $drupal_attr),
+          '#weight' => (module_exists('content')) ? content_extra_field_weight($node->type, $drupal_attr) : 0,
         );
       }
       // Handle all other rw data
@@ -465,7 +469,7 @@ function hugs_view_without_friends($node, $teaser, $page) {
         $column_name = column_name($legacy_attr);
         $node->content[$drupal_attr] = array(
           '#value' => theme('section', array('title' => $drupal_attr, 'elements' => array($node->$column_name))),
-          '#weight' => content_extra_field_weight($node->type, $drupal_attr),
+          '#weight' => (module_exists('content')) ? content_extra_field_weight($node->type, $drupal_attr) : 0,
         );
       }
     }
@@ -658,4 +662,34 @@ function hugs_update($node) {
       }
     }
   }
+}
+
+/**
+ * Replace _ and - with space and capitalize the first letter of each word.
+ */
+function titleize($word) {
+  static $node_info;
+  static $titles;
+  
+  if (!isset($node_info) || empty($node_info)) {
+    $node_info = _get_node_info();
+  }
+  
+  if (!isset($titles[$word]) || empty($titles[$word])) {
+    if (in_array($word, array_keys($node_info))) {
+      $titles[$word] = $node_info[$word]['name'];
+    }
+    else {
+      $titles[$word] = ucwords(preg_replace('/[ \-_]/', ' ', $word));
+    }
+  }
+
+  return $titles[$word];
+}
+
+/**
+ * Replace spaces with - and strtolower the whole shebang. 
+ */
+function untitleize($word) {
+  return strtolower(preg_replace('/ /', '-', $word));
 }

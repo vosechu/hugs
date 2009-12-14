@@ -43,10 +43,10 @@ function get_metadata($node = null) {
       $return = array();
       $return['table_mapping']          = $all_metadata['table_mapping'][$node->type];
       $return['primary_key']            = $all_metadata['primary_key'][$node->type];
-      $return['has_many']               = $all_metadata['has_many'][$node->type];
-      $return['belongs_to']             = $all_metadata['belongs_to'][$node->type];
-      $return['ro_attribute_mapping']   = $all_metadata['ro_attribute_mapping'][$node->type];
-      $return['rw_attribute_mapping']   = $all_metadata['rw_attribute_mapping'][$node->type];
+      $return['has_many']               = !empty($all_metadata['has_many'][$node->type]) ? $all_metadata['has_many'][$node->type] : array();
+      $return['belongs_to']             = !empty($all_metadata['belongs_to'][$node->type]) ? $all_metadata['belongs_to'][$node->type] : array();
+      $return['ro_attribute_mapping']   = !empty($all_metadata['ro_attribute_mapping'][$node->type]) ? $all_metadata['ro_attribute_mapping'][$node->type] : array();
+      $return['rw_attribute_mapping']   = !empty($all_metadata['rw_attribute_mapping'][$node->type]) ? $all_metadata['rw_attribute_mapping'][$node->type] : array();
       
       return $return;
     }
@@ -62,7 +62,7 @@ function _get_all_metadata() {
 
   // Check that this is a valid datatype. Shortcircuit to save some CPU time
   $metadata['primary_key'] = array(
-    // 'application_status'             => 'as_id',
+    'application_status'             => 'as_id',
   );
 
   $metadata['belongs_to'] = array(
@@ -84,11 +84,11 @@ function _get_all_metadata() {
   // going to use these to pull additional attributes into the node with the ro
   // attributes below. You may need to override them in form_defs/view_defs.
   $metadata['rw_attribute_mapping'] = array(
-    // 'application_status'                => array(
-    //   'title'                           => 'as_name',
+    'application_status'                => array(
+      'title'                           => 'as_name',
     //   'body'                            => array('name' => 'as_desc', 'type' => 'textarea'),
     //   'active'                          => array('name' => 'as_active_fl', 'type' => 'checkbox'),
-    // ),
+    ),
   );
 
   // Mappings that should only be used for viewing. These can be convinience
@@ -122,8 +122,7 @@ function _get_node_info() {
       'module'                       => 'hugs',
       'has_title'                    => TRUE,
       'title_label'                  => t('Status'),
-      'has_body'                     => TRUE,
-      'body_label'                   => t('Description'),
+      'has_body'                     => FALSE,
     ),
   );
 }
@@ -132,28 +131,4 @@ function _get_table_mapping() {
   return array(
     'application_status'       => 'legacy_dir_applicationstatuses',
   );
-}
-
-function titleize($word) {
-  static $node_info;
-  static $titles;
-  
-  if (!isset($node_info) || empty($node_info)) {
-    $node_info = _get_node_info();
-  }
-  
-  if (!isset($titles[$word]) || empty($titles[$word])) {
-    if (in_array($word, array_keys($node_info))) {
-      $titles[$word] = $node_info[$word]['name'];
-    }
-    else {
-      $titles[$word] = ucwords(preg_replace('/[ \-_]/', ' ', $word));
-    }
-  }
-
-  return $titles[$word];
-}
-
-function untitleize($word) {
-  return strtolower(preg_replace('/ /', '-', $word));
 }
