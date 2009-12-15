@@ -1,5 +1,10 @@
 <?php
 
+/**
+ * @file
+ * Install file for hugs module.
+ */
+
 require_once('metadata.inc');
 require_once('hugs.module');
 
@@ -17,14 +22,14 @@ function hugs_update_6101() {
     while ($obj = db_fetch_object($res)) {
       hugs_insert_object($obj, $drupal_table, $legacy_table);
     }
-    
+
     db_query("ANALYZE TABLE $drupal_table");
   }
 }
 
 function hugs_insert_object($obj, $drupal_table, $legacy_table) {
   $all_metadata = get_metadata();
-  
+
   $node = new stdClass();
   $node->type = $drupal_table;
   $metadata = get_metadata($node);
@@ -42,34 +47,34 @@ function hugs_insert_object($obj, $drupal_table, $legacy_table) {
   }
 
   if ($metadata['belongs_to']) {
-    foreach ($metadata['belongs_to'] as $drupal_attr => $legacy_attr) {      
-      $child_obj = db_fetch_object(db_query("SELECT * FROM ".$all_metadata['table_mapping'][$drupal_attr]." WHERE ".$all_metadata['primary_key'][$drupal_attr]." = ". $obj->$legacy_attr));
+    foreach ($metadata['belongs_to'] as $drupal_attr => $legacy_attr) {
+      $child_obj = db_fetch_object(db_query("SELECT * FROM ". $all_metadata['table_mapping'][$drupal_attr] ." WHERE ". $all_metadata['primary_key'][$drupal_attr] ." = ". $obj->$legacy_attr));
       if ($child_obj) {
         $child = hugs_insert_object($child_obj, $drupal_attr, $all_metadata['table_mapping'][$drupal_attr]);
         $node->$drupal_attr = $child->nid;
       }
     }
   }
-  
+
   node_save($node);
-  
+
   return $node;
 }
 
 function hugs_uninstall() {
   $tables = implode(', ', array_map(create_function('$v', 'return("\'".$v."\'");'), array_keys(_get_table_mapping())));
-  
+
   db_query("DELETE FROM node_revisions WHERE nid IN (SELECT nid FROM node WHERE type IN ($tables))");
   db_query("DELETE FROM node WHERE type IN ($tables)");
-  
+
   drupal_uninstall_schema('hugs');
 }
 
 function hugs_schema() {
   $schema = array();
   $tables = _get_table_mapping();
-  
-  foreach($tables as $drupal_name => $legacy_name) {
+
+  foreach ($tables as $drupal_name => $legacy_name) {
     $schema[$drupal_name] = array(
       'description' => "Implementation of the " . titleize($drupal_name) . " table from the ASCCC database.",
       'fields' => _discover_table_schema($drupal_name),
@@ -86,7 +91,7 @@ function hugs_schema() {
       $schema[$drupal_name]['indexes'][$index_name] = $index;
     }
   }
-  
+
   return $schema;
 }
 
@@ -94,9 +99,9 @@ function _discover_table_schema($drupal_name) {
   $pseudo = new stdClass();
   $pseudo->type = $drupal_name;
   $metadata = get_metadata($pseudo);
-  
+
   $schema = array();
-    
+
   // Add in nid, vid
   $schema['nid'] = array(
     'type' => 'int',
@@ -112,7 +117,7 @@ function _discover_table_schema($drupal_name) {
     'description' => t('Unique revision identifier.'),
     // 'auto_increment' => TRUE,
   );
-  
+
   // Add in a refid
   $schema['refid'] = array(
     'type' => 'int',
@@ -120,10 +125,10 @@ function _discover_table_schema($drupal_name) {
     'not null' => TRUE,
     'description' => t('Unique legacy identifier.'),
   );
-  
+
   // Add in any has_many/belongs_to relationships
-  if ($metadata['belongs_to']){
-    foreach($metadata['belongs_to'] as $drupal_name => $legacy_name) {
+  if ($metadata['belongs_to']) {
+    foreach ($metadata['belongs_to'] as $drupal_name => $legacy_name) {
       $schema[$drupal_name] = array(
         'type' => 'int',
         'unsigned' => TRUE,
@@ -133,7 +138,7 @@ function _discover_table_schema($drupal_name) {
     }
   }
   // Add in any rw attributes (based on legacy schema?)
-    
+
   return $schema;
 }
 
@@ -141,14 +146,14 @@ function _discover_indexes($drupal_name) {
   $node = new stdClass();
   $node->type = $drupal_name;
   $metadata = get_metadata($node);
-  
+
   $indexes = array();
-  
-  if ($metadata['belongs_to']){
-    foreach($metadata['belongs_to'] as $drupal_name => $legacy_name) {
+
+  if ($metadata['belongs_to']) {
+    foreach ($metadata['belongs_to'] as $drupal_name => $legacy_name) {
       $indexes[$drupal_name] = array($drupal_name);
     }
   }
-  
+
   return $indexes;
 }

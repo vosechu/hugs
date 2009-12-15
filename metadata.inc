@@ -1,36 +1,41 @@
 <?php
 
 /**
+ * @file
+ * Metadata connecting legacy data with Drupal nodes.
+ */
+
+/**
  * Take a node or a pseudo-node and return metadata about what fields it should display or edit.
  *
- * Take a node or a pseudo-node and return metadata about what fields it should 
- * display or edit. 
- * 
- * @param $node Takes a full node or a pseudo-node with just the type attribute set. 
- * This allows get_metadata to filter and return only the data for the requested 
+ * Take a node or a pseudo-node and return metadata about what fields it should
+ * display or edit.
+ *
+ * @param $node Takes a full node or a pseudo-node with just the type attribute set.
+ * This allows get_metadata to filter and return only the data for the requested
  * content-type.
- * @return mixed Returns an associative array with these indices: 
+ * @return mixed Returns an associative array with these indices:
  * * table_mapping: A mapping of content-type name to old database table name.
- * * rw_attribute_mapping: An associative array of attributes where the key is 
+ * * rw_attribute_mapping: An associative array of attributes where the key is
  * the column in the old database and the value is the name of the attribute in
- * the node loaded by node_load(). 
+ * the node loaded by node_load().
  * * ro_attribute_mapping: An associative array of pseudo-attributes which should
- * be used only for display purposes and not written back to the database. 
+ * be used only for display purposes and not written back to the database.
  * * form_defs: A FAPI-style description of what drupal should display for the
- * add/edit forms. 
+ * add/edit forms.
  * * view_defs: A Drupal API style description of what drupal should display when
- * someone asks to display the node. 
+ * someone asks to display the node.
  */
-function get_metadata($node = null) {
+function get_metadata($node = NULL) {
   global $all_metadata;
-  
+
   if (!$all_metadata || empty($all_metadata)) {
     $all_metadata = _get_all_metadata();
   }
-  
+
   // Requesting data for a node that isn't in the table_mapping gets you a big fat FALSE.
   if ($node && !$all_metadata['table_mapping'][$node->type]) {
-    return false;
+    return FALSE;
   }
   else {
     // Return all data when no node->type is available
@@ -38,7 +43,7 @@ function get_metadata($node = null) {
       return $all_metadata;
     }
     // Return just the data we need for this node->type
-    
+
     else {
       $return = array();
       $return['table_mapping']          = $all_metadata['table_mapping'][$node->type];
@@ -47,16 +52,16 @@ function get_metadata($node = null) {
       $return['belongs_to']             = !empty($all_metadata['belongs_to'][$node->type]) ? $all_metadata['belongs_to'][$node->type] : array();
       $return['ro_attribute_mapping']   = !empty($all_metadata['ro_attribute_mapping'][$node->type]) ? $all_metadata['ro_attribute_mapping'][$node->type] : array();
       $return['rw_attribute_mapping']   = !empty($all_metadata['rw_attribute_mapping'][$node->type]) ? $all_metadata['rw_attribute_mapping'][$node->type] : array();
-      
+
       return $return;
     }
   }
 }
- 
+
 function _get_all_metadata() {
   $metadata = array();
-  
-  // Master list of new->old table names. 
+
+  // Master list of new->old table names.
   // This is the list we compare when checking if a node is mapable.
   $metadata['table_mapping'] = _get_table_mapping();
 
@@ -92,7 +97,7 @@ function _get_all_metadata() {
   );
 
   // Mappings that should only be used for viewing. These can be convinience
-  // methods, pretification, or whatever you like. If they are pre-process 
+  // methods, pretification, or whatever you like. If they are pre-process
   // functions then they should override the view_defs below or in the case of
   // standard node attributes just override the attribute directly (eg. title).
   $metadata['ro_attribute_mapping'] = array(
@@ -100,17 +105,17 @@ function _get_all_metadata() {
     //   'title' => 'CONCAT(mmb_fname, " ", mmb_lname)',
     // ),
   );
-  
+
   return $metadata;
 }
 
 function get_node_info() {
   global $node_info;
-  
+
   if (!$node_info || empty($node_info)) {
     $node_info = _get_node_info();
   }
-  
+
   return $node_info;
 }
 

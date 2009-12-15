@@ -1,5 +1,9 @@
 <?php
 
+/**
+ * @file
+ * Drupal module for hugging legacy data. We still love you little buddy.
+ */
 require_once('metadata.inc');
 
 $all_metadata = get_metadata();
@@ -8,13 +12,13 @@ $node_info = array();
 // TODO: Extend CCK's 'manage fields' interface so that we can exclude wrapped fields from search, rss, and teaser view
 // TODO: Document how to define metadata.inc
 // TODO: Create a sync function instead of a hook_update_n to run with cron and check for new legacy items
-// TODO: 
+// TODO:
 
 /**
  * Implementation of hook_access().
  *
  * Named so as not to conflict with node_access(). Basically sets up the same
- * exact permissions as node.module does. 
+ * exact permissions as node.module does.
  */
 function hugs_access($op, $node, $account) {
   $type = is_string($node) ? $node : (is_array($node) ? $node['type'] : $node->type);
@@ -62,11 +66,11 @@ function hugs_node_info() {
  * Implementation of hook_perm().
  *
  * Basically the same exact thing as node.module. Allows fairly refined control
- * over all editing aspects of the legacy nodes. 
+ * over all editing aspects of the legacy nodes.
  */
 function hugs_perm() {
   $perms = array();
-  
+
   foreach (node_get_types() as $type) {
     if ($type->module == 'hugs') {
       $name = check_plain($type->type);
@@ -86,13 +90,13 @@ function hugs_perm() {
  */
 function hugs_load($node) {
   // Make sure that we only load a node once. After that we should skip the node_load
-  // and just return the correct object. 
+  // and just return the correct object.
   static $nodes = array();
-  
+
   $nodes[$node->nid] = is_object($node) ? drupal_clone($node) : $node;
-  
+
   $metadata = get_metadata($node);
-  
+
   $node = hugs_load_without_friends($node);
 
   // Horibly brittle hack to ensure searching doesn't hose
@@ -100,7 +104,7 @@ function hugs_load($node) {
   if ($backtrace[4]['function'] == 'node_update_index') {
     return $node;
   }
-  
+
   // Load up any parents
   if ($metadata['belongs_to']) {
     foreach ($metadata['belongs_to'] as $drupal_attr => $legacy_attr) {
@@ -124,11 +128,11 @@ function hugs_load($node) {
       // Only load in one direction, when we load up a child it shouldn't load up all its children too
       if (!$node->parent) {
         $collection = $drupal_attr . "_collection";
-      
+
         // Get the list of things this object owns
         $sql = "SELECT * FROM node, $drupal_attr as extra WHERE node.nid = extra.nid AND extra.". $node->type ." = ". $node->nid;
         $res = db_query($sql);
-      
+
         // node_load all children and drop them in an array
         $node->$collection = array();
         while ($obj = db_fetch_object($res)) {
@@ -138,13 +142,13 @@ function hugs_load($node) {
       }
     }
   }
-  
+
   return $node;
 }
 
 function hugs_load_without_friends($node) {
   $metadata = get_metadata($node);
-  
+
   // Load up linking information and extra info from the node addon table
   if ($node->nid) {
     $sql = "SELECT * FROM ". $node->type ." WHERE nid = ". $node->nid;
@@ -153,7 +157,7 @@ function hugs_load_without_friends($node) {
       $node->$key = $value;
     }
   }
-  
+
   // Load up from the legacy table
   if ($node->refid) {
     $sql = "SELECT";
@@ -171,7 +175,7 @@ function hugs_load_without_friends($node) {
     }
     $sql .= implode(', ', $sql_attr);
     $sql .= " FROM ". $metadata['table_mapping'] ." as legacy WHERE legacy.". $metadata['primary_key'] ." = ". $node->refid;
-  
+
     // Add these attributes onto the node object
     $legacy_attributes = db_fetch_object(db_query($sql));
     if ($legacy_attributes) {
@@ -187,13 +191,13 @@ function hugs_load_without_friends($node) {
       }
     }
   }
-  
+
   return $node;
 }
 
 /**
- * Check in the metadata to see if the column definition is an array or just a 
- * string. If it's a string just return the name, otherwise return the 'name' key. 
+ * Check in the metadata to see if the column definition is an array or just a
+ * string. If it's a string just return the name, otherwise return the 'name' key.
  */
 function column_name($legacy_attr) {
   return (is_array($legacy_attr) && $legacy_attr['name']) ? $legacy_attr['name'] : $legacy_attr;
@@ -201,12 +205,12 @@ function column_name($legacy_attr) {
 
 function hugs_form($node) {
   // Pull up the metadata filtered by node type. If we're editing a node we pass that
-  // in as well so that the default values are populated correctly. 
+  // in as well so that the default values are populated correctly.
   $metadata = get_metadata($node);
-  
+
   // Pull up title/body info and display fields if necessary
   $node_info = get_node_info();
-  
+
   $form = array();
 
   // If we found some form definitions rejoice and modify the form.
@@ -216,9 +220,9 @@ function hugs_form($node) {
         '#type' => 'textfield',
         '#title' => check_plain(titleize($drupal_attr)),
       );
-      
+
       // This allows the entire stack to be specified by either an array with options:
-      // name, type, and options or none of these things. 
+      // name, type, and options or none of these things.
       if (is_array($legacy_attr)) {
         if ($legacy_attr['name']) {
           $form[$drupal_attr]['#default_value'] = check_plain($node->$drupal_attr);
@@ -248,14 +252,14 @@ function hugs_form($node) {
           }
         }
       }
-      
+
       // If the options coming in aren't an array just use them like a textfield
       else {
         $form[$drupal_attr]['#default_value'] = check_plain($node->$legacy_attr);
       }
-    }    
+    }
   }
-  
+
   if ($node_info[$node->type]['has_title']) {
     $form['title'] = array(
       '#type' => 'textfield',
@@ -270,12 +274,12 @@ function hugs_form($node) {
       '#default_value' => check_plain($node->body),
     );
   }
-  
+
   if ($metadata['belongs_to']) {
     foreach ($metadata['belongs_to'] as $drupal_attr => $legacy_attr) {
       $default_value = ($node->$drupal_attr) ? select_flattened_array_from_sql('nid', "SELECT * FROM $drupal_attr as extra WHERE nid = ". $node->$drupal_attr, $node->type) : array();
-      $allow_blank = true;
-  
+      $allow_blank = TRUE;
+
       $form[$drupal_attr] = array(
         '#title' => check_plain(titleize($drupal_attr)),
         '#type' => 'select',
@@ -292,7 +296,7 @@ function hugs_form($node) {
       }
     }
   }
-  
+
   // Only display has_many when the node already exists. Otherwise it just doesn't make much sense.
   if ($node->nid) {
     if ($metadata['has_many']) {
@@ -305,7 +309,7 @@ function hugs_form($node) {
             $description .= l($title, 'node/' . $foreign_node->nid);
           }
         }
-      
+
         $form[$drupal_type] = array(
           '#type' => 'item',
           '#title' => check_plain(titleize($drupal_type)),
@@ -321,7 +325,7 @@ function hugs_form($node) {
       }
     }
   }
-  
+
   // Add in the legacy reference field
   if ($node->refid) {
     $form['refid'] = array(
@@ -329,7 +333,7 @@ function hugs_form($node) {
       '#value' => check_plain($node->refid),
     );
   }
-  
+
   return $form;
 }
 
@@ -338,12 +342,12 @@ function hugs_form($node) {
  */
 function hugs_content_extra_fields($type) {
   $node = new stdClass();
-  $node->type = $type;  
+  $node->type = $type;
   $metadata = get_metadata($node);
-  
+
   // Pull up title/body info and display fields if necessary
   $node_info = get_node_info();
-  
+
   $extras = array();
 
   if (!empty($metadata['rw_attribute_mapping'])) {
@@ -355,9 +359,9 @@ function hugs_content_extra_fields($type) {
           'label' => titleize($drupal_attr),
         );
       }
-    }    
+    }
   }
-  
+
   if ($metadata['belongs_to']) {
     foreach ($metadata['belongs_to'] as $drupal_attr => $legacy_attr) {
       $extras[$drupal_attr] = array(
@@ -366,7 +370,7 @@ function hugs_content_extra_fields($type) {
       );
     }
   }
-  
+
   if ($metadata['has_many']) {
     foreach ($metadata['has_many'] as $drupal_attr => $legacy_attr) {
       $extras[$drupal_attr] = array(
@@ -375,7 +379,7 @@ function hugs_content_extra_fields($type) {
       );
     }
   }
-  
+
   return $extras;
 }
 
@@ -384,18 +388,18 @@ function hugs_content_extra_fields($type) {
  */
 function hugs_view($node, $teaser = FALSE, $page = FALSE) {
   $metadata = get_metadata($node);
-  
+
   $node = node_prepare($node, $teaser);
-  
+
   $node = hugs_view_without_friends($node, $teaser, $page);
-  
+
   if ($metadata['belongs_to']) {
     foreach ($metadata['belongs_to'] as $drupal_attr => $legacy_attr) {
       if ($node->parent != $drupal_attr) {
         $rows = array();
-        
+
         $collection = $drupal_attr . "_collection";
-      
+
         if ($node->$collection) {
           foreach ($node->$collection as $child) {
             $child->parent = $node->type;
@@ -410,14 +414,14 @@ function hugs_view($node, $teaser = FALSE, $page = FALSE) {
       }
     }
   }
-  
+
   if ($metadata['has_many']) {
     foreach ($metadata['has_many'] as $drupal_attr => $legacy_attr) {
       if (!$node->parent) {
         $rows = array();
 
         $collection = $drupal_attr . "_collection";
-      
+
         if ($node->$collection) {
           foreach ($node->$collection as $child) {
             $child->parent = $node->type;
@@ -430,22 +434,22 @@ function hugs_view($node, $teaser = FALSE, $page = FALSE) {
         $node->content[$drupal_attr] = $rows;
         $node->content[$drupal_attr]['#weight'] = content_extra_field_weight($node->type, $drupal_attr);
       }
-    }    
+    }
   }
-    
+
   return $node;
 }
 
 function hugs_view_without_friends($node, $teaser, $page) {
   $metadata = get_metadata($node);
-  
+
   // Pull up title/body info and display fields if necessary
   static $node_info;
-  
+
   if (!$node_info) {
     $node_info = get_node_info();
   }
-  
+
   if ($metadata['ro_attribute_mapping']) {
     foreach ($metadata['ro_attribute_mapping'] as $drupal_attr => $ro_attr) {
       $node->content[$drupal_attr] = array(
@@ -454,7 +458,7 @@ function hugs_view_without_friends($node, $teaser, $page) {
       );
     }
   }
-  
+
   if ($metadata['rw_attribute_mapping']) {
     foreach ($metadata['rw_attribute_mapping'] as $drupal_attr => $legacy_attr) {
       // Handle file uploads
@@ -474,7 +478,7 @@ function hugs_view_without_friends($node, $teaser, $page) {
       }
     }
   }
-  
+
   return $node;
 }
 
@@ -500,34 +504,34 @@ function hugs_form_alter(&$form, $form_state, $form_id) {
 /**
  * Take some sql and return a mapping between two attributes in some sql
  */
-function select_options_from_sql($col1, $col2, $sql, $extra_blank = false, $parent_node_type) {
+function select_options_from_sql($col1, $col2, $sql, $extra_blank = FALSE, $parent_node_type) {
   $sql = module_invoke_all('reduce_options', $sql, $parent_node_type);
   $sql = $sql[0];
 
   $res = db_query($sql);
   $rows = array();
-  
+
   if ($extra_blank) {
     $rows[] = '';
   }
   while ($opt = db_fetch_array($res)) {
     $rows[$opt[$col1]] = $opt[$col2];
   }
-  
+
   return $rows;
 }
 
 function select_flattened_array_from_sql($col1, $sql, $parent_node_type) {
   $sql = module_invoke_all('reduce_options', $sql, $parent_node_type);
   $sql = $sql[0];
-  
+
   $res = db_query($sql);
   $rows = array();
-  
+
   while ($opt = db_fetch_array($res)) {
     $rows[] = $opt[$col1];
   }
-    
+
   return $rows;
 }
 
@@ -536,7 +540,7 @@ function select_flattened_array_from_sql($col1, $sql, $parent_node_type) {
  */
 function hugs_delete($node) {
   $metadata = get_metadata($node);
-  
+
   db_query("DELETE FROM %s WHERE %s = %d", $metadata['table_mapping'], $metadata['primary_key'], $node->refid);
   db_query("DELETE FROM %s WHERE nid = %d", $node->type, $node->nid);
 }
@@ -546,25 +550,25 @@ function hugs_delete($node) {
  */
 function hugs_insert($node) {
   $metadata = get_metadata($node);
-  
+
   if (!$node->refid) {
     // Insert into the legacy table
     $sql = "INSERT INTO %s SET ";
     $sql_vars = array($metadata['table_mapping']);
     $sql_attr = array();
-  
+
     if ($metadata['rw_attribute_mapping']) {
       foreach ($metadata['rw_attribute_mapping'] as $drupal_attr => $legacy_attr) {
         if ($legacy_attr['type'] == 'upload_element') {
           $node->$drupal_attr = upload_element_save($node->$drupal_attr, 'sites/default/files', FILE_EXISTS_RENAME, 'imagecache_preset');
         }
-        
+
         $column_name = column_name($legacy_attr);
         $sql_attr[] = "$column_name = \"%s\"";
         $sql_vars[] = $node->$drupal_attr;
       }
     }
-  
+
     // Update the foreign key associations on the legacy table
     if ($metadata['belongs_to']) {
       $table_mapping = _get_table_mapping();
@@ -575,22 +579,22 @@ function hugs_insert($node) {
         }
       }
     }
-  
+
     db_query($sql . implode(", ", $sql_attr), $sql_vars);
-  
+
     $node->refid = db_result(db_query('SELECT LAST_INSERT_ID()'));
   }
-  
+
   // Insert into the drupal extra table
   $sql = "INSERT INTO %s SET ";
   $sql_vars = array($node->type);
-  
+
   $sql_attr = array();
   $sql_attr[] = "nid = %d";
   $sql_attr[] = "vid = %d";
   $sql_attr[] = "refid = %d";
   $sql_vars = array_merge($sql_vars, array($node->nid, $node->vid, $node->refid));
-  
+
   if ($metadata['belongs_to']) {
     foreach ($metadata['belongs_to'] as $drupal_attr => $legacy_attr) {
       if ($node->$drupal_attr) {
@@ -608,18 +612,18 @@ function hugs_insert($node) {
  */
 function hugs_update($node) {
   $metadata = get_metadata($node);
-  
+
   // Update the legacy table
   if ($metadata['rw_attribute_mapping']) {
     $sql = "UPDATE %s SET ";
     $sql_vars = array($metadata['table_mapping']);
-    
+
     $sql_attr = array();
     foreach ($metadata['rw_attribute_mapping'] as $drupal_attr => $legacy_attr) {
       if ($legacy_attr['type'] == 'upload_element') {
         $node->$drupal_attr = upload_element_save($node->$drupal_attr, 'sites/default/files', FILE_EXISTS_RENAME, 'imagecache_preset');
       }
-      
+
       $column_name = column_name($legacy_attr);
       $sql_attr[] = "%s = \"%s\"";
       $sql_vars = array_merge($sql_vars, array($column_name, $node->$drupal_attr));
@@ -627,15 +631,15 @@ function hugs_update($node) {
     $sql = $sql . implode(", ", $sql_attr);
     $sql .= " WHERE %s = %d ";
     $sql_vars = array_merge($sql_vars, array($metadata['primary_key'], $node->refid));
-    
+
     db_query($sql, $sql_vars);
   }
-  
+
   if ($metadata['belongs_to']) {
     // Update the drupal table
     $sql = "UPDATE %s SET ";
     $sql_vars = array($node->type);
-    
+
     $sql_attr = array();
     foreach ($metadata['belongs_to'] as $drupal_attr => $legacy_attr) {
       if ($node->$drupal_attr) {
@@ -643,7 +647,7 @@ function hugs_update($node) {
         $sql_vars = array_merge($sql_vars, array($drupal_attr, $node->$drupal_attr));
       }
     }
-    
+
     if (sizeof($sql_attr) > 0) {
       $sql = $sql . implode(", ", $sql_attr);
       $sql .= " WHERE nid = %d";
@@ -651,7 +655,7 @@ function hugs_update($node) {
 
       db_query($sql, $sql_vars);
     }
-    
+
     // Update the foreign key associations on the legacy table
     $table_mapping = _get_table_mapping();
     foreach ($metadata['belongs_to'] as $drupal_attr => $legacy_attr) {
@@ -670,11 +674,11 @@ function hugs_update($node) {
 function titleize($word) {
   static $node_info;
   static $titles;
-  
+
   if (!isset($node_info) || empty($node_info)) {
     $node_info = _get_node_info();
   }
-  
+
   if (!isset($titles[$word]) || empty($titles[$word])) {
     if (in_array($word, array_keys($node_info))) {
       $titles[$word] = $node_info[$word]['name'];
@@ -688,8 +692,8 @@ function titleize($word) {
 }
 
 /**
- * Replace spaces with - and strtolower the whole shebang. 
+ * Replace spaces with - and strtolower the whole shebang.
  */
 function untitleize($word) {
-  return strtolower(preg_replace('/ /', '-', $word));
+  return drupal_strtolower(preg_replace('/ /', '-', $word));
 }
