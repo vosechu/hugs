@@ -495,13 +495,6 @@ function hugs_theme() {
 }
 
 /**
- * Implementation of hook_form_alter().
- */
-function hugs_form_alter(&$form, $form_state, $form_id) {
-
-}
-
-/**
  * Take some sql and return a mapping between two attributes in some sql
  */
 function select_options_from_sql($col1, $col2, $sql, $extra_blank = FALSE, $parent_node_type) {
