@@ -453,7 +453,7 @@ function hugs_view_without_friends($node, $teaser, $page) {
   if ($metadata['ro_attribute_mapping']) {
     foreach ($metadata['ro_attribute_mapping'] as $drupal_attr => $ro_attr) {
       $node->content[$drupal_attr] = array(
-        '#value' => theme('section', array('title' => $drupal_attr, 'elements' => array($node->$drupal_attr))),
+        '#value' => theme('hugs_section', array('title' => $drupal_attr, 'elements' => array($node->$drupal_attr))),
         '#weight' => (module_exists('content')) ? content_extra_field_weight($node->type, $drupal_attr) : 0,
       );
     }
@@ -472,7 +472,7 @@ function hugs_view_without_friends($node, $teaser, $page) {
       else {
         $column_name = column_name($legacy_attr);
         $node->content[$drupal_attr] = array(
-          '#value' => theme('section', array('title' => $drupal_attr, 'elements' => array($node->$column_name))),
+          '#value' => theme('hugs_section', array('title' => $drupal_attr, 'elements' => array($node->$column_name))),
           '#weight' => (module_exists('content')) ? content_extra_field_weight($node->type, $drupal_attr) : 0,
         );
       }
@@ -487,7 +487,7 @@ function hugs_view_without_friends($node, $teaser, $page) {
  */
 function hugs_theme() {
   return array(
-    'section' => array(
+    'hugs_section' => array(
       'arguments' => array('elements' => NULL),
       'template' => 'element',
     ),
